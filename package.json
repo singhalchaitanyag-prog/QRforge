@@ -1,0 +1,21 @@
+{
+  "name": "qrforge",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "QR code generator with brand-aware design, dynamic codes, analytics and an API.",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "start": "node --env-file-if-exists=.env server/index.js",
+    "dev": "node scripts/build.mjs && node --env-file-if-exists=.env server/index.js",
+    "test": "node --test \"test/*.test.js\"",
+    "migrate:turso": "node --env-file=.env scripts/migrate-to-turso.mjs"
+  },
+  "dependencies": {
+    "libsql": "^0.5.29",
+    "qrcode": "^1.5.4"
+  }
+}

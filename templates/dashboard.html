@@ -1,0 +1,47 @@
+<main class="wrap dash">
+  <div id="loading" class="empty">Loading…</div>
+  <div id="offline" class="empty" hidden>
+    <h2>The dashboard needs the QRForge server</h2>
+    <p>This page is being served without the API, so accounts and dynamic codes are unavailable. Run <code>npm start</code> and open the site from that address.</p>
+  </div>
+
+  <section id="authView" class="card auth-card" hidden></section>
+
+  <div id="appView" hidden>
+    <div class="dash-head">
+      <div><h1>Dashboard</h1><span class="hint" id="whoami"></span></div>
+      <button type="button" class="btn small alt" id="logout">Log out</button>
+    </div>
+    <div class="nudge" id="nudge" hidden>
+      <span><strong>Protect your account.</strong> Turn on two-step verification so a stolen password is not enough.</span>
+      <button type="button" class="btn small" id="nudgeBtn">Set it up</button>
+    </div>
+    <div class="dtabs" id="dtabs" role="tablist">
+      <button type="button" data-v="links" class="active">Links</button>
+      <button type="button" data-v="new">New dynamic link</button>
+      <button type="button" data-v="page">New landing page</button>
+      <button type="button" data-v="security">Security</button>
+      <button type="button" data-v="settings">API key</button>
+    </div>
+
+    <section id="v-links">
+      <div class="card"><div class="table-wrap" id="linkTable"></div></div>
+      <div id="detail" class="card" style="margin-top:20px" hidden></div>
+    </section>
+    <section id="v-new" hidden><div class="card" style="max-width:640px" id="newForm"></div></section>
+    <section id="v-page" hidden><div class="card" style="max-width:640px" id="pageForm"></div></section>
+    <section id="v-security" hidden><div id="securityRoot"></div></section>
+    <section id="v-settings" hidden>
+      <div class="card" style="max-width:640px">
+        <h3 style="margin-top:0">API key</h3>
+        <p class="hint">Use a key to create links and read analytics from your own code.</p>
+        <div class="mono" id="keyShown" style="margin:10px 0"></div>
+        <div class="tools-row" style="justify-content:flex-start">
+          <button type="button" class="btn small" id="keyNew">Generate new key</button>
+          <button type="button" class="btn small danger" id="keyRevoke">Revoke key</button>
+        </div>
+        <p class="hint" id="keyHint"></p>
+      </div>
+    </section>
+  </div>
+</main>

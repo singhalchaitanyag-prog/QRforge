@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 500" preserveAspectRatio="xMidYMid slice">
+<defs><filter id="b"><feGaussianBlur stdDeviation="60"/></filter></defs>
+<g filter="url(#b)" opacity=".75">
+<circle cx="300" cy="260" r="130" fill="#b8c4ff"/><circle cx="560" cy="170" r="150" fill="#ffd0e6"/>
+<circle cx="820" cy="260" r="150" fill="#ffe3b3"/><circle cx="1010" cy="160" r="130" fill="#c9f3d3"/>
+<circle cx="700" cy="360" r="110" fill="#e4c9ff"/>
+</g></svg>

@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}}</title>
+<meta name="description" content="{{DESCRIPTION}}">
+<link rel="canonical" href="{{CANONICAL}}">
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{TITLE}}">
+<meta property="og:description" content="{{DESCRIPTION}}">
+<meta property="og:url" content="{{CANONICAL}}">
+<meta name="twitter:card" content="summary">
+<meta name="theme-color" content="#5258e4">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="/js/theme-init.js"></script>
+<link rel="stylesheet" href="/css/app.css">
+<script type="application/ld+json">{{JSONLD}}</script>
+</head>
+<body data-type="{{DEFAULT_TYPE}}"{{LANDING_ATTR}}>
+
+<header class="top"><div class="wrap nav">
+  <a class="logo" href="/"><i></i>QRForge</a>
+  <nav aria-label="Main">
+    <a href="/#how" data-i18n="nav.how">How it works</a>
+    <a href="/#features" data-i18n="nav.features">Features</a>
+    <select id="langSel" class="lang" aria-label="Language"><option value="en">EN</option><option value="hi">हिं</option></select>
+    <button id="themeBtn" class="icon-btn" type="button" aria-label="Toggle dark mode">◐</button>
+    <a class="pill" id="authLink" href="/dashboard" data-i18n="nav.signin">Sign in</a>
+    <a class="pill solid" href="#tool" data-i18n="nav.start">Start for free</a>
+  </nav>
+</div></header>
+
+<main class="wrap">
+  {{CRUMBS}}
+  <section class="hero">
+    <h1 {{H1_I18N}}>{{H1}}</h1>
+    <p {{SUB_I18N}}>{{SUB}}</p>
+    <div class="chips"><span data-i18n="chip.free">Free</span><span data-i18n="chip.nosignup">No sign-up</span><span data-i18n="chip.brand">Logo &amp; brand colors</span><span data-i18n="chip.private">Private, in your browser</span></div>
+  </section>
+
+  <section class="tool" id="tool">
+    <div class="card">
+      <div class="tabs" id="tabs" role="tablist" aria-label="QR code type"></div>
+
+      <div id="typePanel">
+        <div id="fields"></div>
+        <div class="err" id="err" role="alert"></div>
+
+        <div class="box" id="dynBox" hidden>
+          <label class="check"><input type="checkbox" id="dynOn"><span data-i18n="dyn.label">Make it dynamic: editable link with scan analytics</span></label>
+          <div id="dynInfo" hidden>
+            <p class="hint" id="dynMsg"></p>
+            <div class="mono" id="dynShort" style="margin:8px 0"></div>
+            <div class="tools-row" style="justify-content:flex-start">
+              <button type="button" class="btn small" id="dynCreate" data-i18n="dyn.create">Create dynamic code</button>
+              <a class="btn small alt" id="dynDash" href="/dashboard" hidden data-i18n="dyn.dash">Open dashboard</a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bulkPanel" hidden>
+        <label for="bulkType" data-i18n="bulk.type">Each line is a</label>
+        <select id="bulkType"><option value="url">Web address</option><option value="text">Plain text</option></select>
+        <label for="bulkText" data-i18n="bulk.lines">One item per line (optional: <span class="mono">value,filename</span>)</label>
+        <textarea id="bulkText" rows="6" placeholder="https://example.com/table-1,table-1&#10;https://example.com/table-2,table-2"></textarea>
+        <label for="bulkFile" data-i18n="bulk.csv">Or upload a CSV file</label>
+        <input type="file" id="bulkFile" accept=".csv,.txt,text/csv,text/plain">
+        <div class="row" style="margin-top:6px">
+          <div><label for="bulkFmt" data-i18n="bulk.fmt">Format</label><select id="bulkFmt"><option value="png">PNG</option><option value="svg">SVG</option></select></div>
+          <div style="align-self:end"><button type="button" class="btn" id="bulkGo" style="width:100%" data-i18n="bulk.go">Generate ZIP</button></div>
+        </div>
+        <div class="hint" id="bulkStatus">Uses the style, logo and frame you set below. Up to 500 codes.</div>
+      </div>
+
+      <div class="panel-title"><h3 data-i18n="tpl.title">Templates</h3><span class="hint" data-i18n="tpl.hint">Pick a starting style, then fine-tune it below.</span></div>
+      <div class="templates" id="templates" role="group" aria-label="Templates"></div>
+
+      <details open>
+        <summary data-i18n="cust.title">Customize</summary>
+        <div class="row">
+          <div><label for="fg" data-i18n="cust.fg">Foreground</label><div class="color"><input type="color" id="fg" value="#1d1d1f"><span class="hint" id="fgv">#1d1d1f</span></div></div>
+          <div><label for="bg" data-i18n="cust.bg">Background</label><div class="color"><input type="color" id="bg" value="#ffffff"><span class="hint" id="bgv">#ffffff</span></div></div>
+        </div>
+        <div class="row">
+          <div><label for="dots" data-i18n="cust.dots">Dot style</label>
+            <select id="dots"><option value="square">Square</option><option value="rounded">Rounded</option><option value="dots">Dots</option><option value="classy">Classy</option><option value="classy-rounded">Classy rounded</option><option value="extra-rounded">Extra rounded</option></select></div>
+          <div><label for="corner" data-i18n="cust.corner">Corner style</label>
+            <select id="corner"><option value="square">Square</option><option value="extra-rounded">Rounded</option><option value="dot">Dot</option></select></div>
+        </div>
+        <div class="row">
+          <div><label for="tstyle" data-i18n="cust.tstyle">Color style</label>
+            <select id="tstyle"><option value="solid">Solid</option><option value="twotone">Two-tone corners</option><option value="gradient">Gradient</option></select></div>
+          <div><label for="c2" data-i18n="cust.c2">Second color</label><div class="color"><input type="color" id="c2" value="#5258e4"><span class="hint" id="c2v">#5258e4</span></div></div>
+        </div>
+        <label for="size"><span data-i18n="cust.size">Export size</span>: <span id="sizev">1000</span>px</label>
+        <input type="range" id="size" min="300" max="2000" step="50" value="1000">
+      </details>
+
+      <details>
+        <summary data-i18n="logo.title">Brand logo &amp; auto theme</summary>
+        <div class="drop" id="drop" style="margin-top:14px">
+          <input type="file" id="logo" accept="image/png,image/jpeg,image/svg+xml,image/webp" aria-label="Brand logo">
+          <div class="hint" data-i18n="logo.hint">Upload your logo (PNG, JPG, SVG or WebP) or drag it here.</div>
+        </div>
+        <div class="icons" id="icons" aria-label="Quick icons"></div>
+        <div id="logoOpts" hidden>
+          <div class="row">
+            <div><label for="lsize"><span data-i18n="logo.size">Logo size</span>: <span id="lsizev">22</span>%</label><input type="range" id="lsize" min="10" max="35" value="22"></div>
+            <div><label for="lpad"><span data-i18n="logo.pad">Padding</span>: <span id="lpadv">6</span>px</label><input type="range" id="lpad" min="0" max="20" value="6"></div>
+          </div>
+          <label class="check"><input type="checkbox" id="lclear" checked><span data-i18n="logo.clear">Clear dots behind the logo (scans more reliably)</span></label>
+          <div class="box">
+            <label class="check" style="margin-top:0"><input type="checkbox" id="tauto" checked><span data-i18n="logo.match">Match QR theme to logo colors</span></label>
+            <div class="swatches" id="swatches" aria-label="Colors found in the logo"></div>
+            <button type="button" class="btn alt small" id="autodesign" data-i18n="logo.auto">✨ Auto-design from logo</button>
+            <label class="check"><input type="checkbox" id="btint" checked><span data-i18n="logo.tint">Tint background with logo color</span></label>
+            <div class="hint" data-i18n="logo.autohint">Picks shapes, colors and a soft background that suit your logo, then tests that it still scans.</div>
+          </div>
+          <div class="hint"><button type="button" class="link-btn" id="rmlogo" data-i18n="logo.remove">Remove logo</button></div>
+        </div>
+      </details>
+
+      <details>
+        <summary data-i18n="frame.title">Frame &amp; call to action</summary>
+        <div class="row">
+          <div><label for="fstyle" data-i18n="frame.style">Frame</label>
+            <select id="fstyle"><option value="none">None</option><option value="bottom">Label below</option><option value="top">Label above</option><option value="pill">Pill label</option></select></div>
+          <div><label for="fcolor" data-i18n="frame.color">Frame color</label><div class="color"><input type="color" id="fcolor" value="#1d1d1f"><label class="check" style="margin:0"><input type="checkbox" id="fauto" checked><span data-i18n="frame.auto">Match QR</span></label></div></div>
+        </div>
+        <label for="ftext" data-i18n="frame.text">Label text</label>
+        <input type="text" id="ftext" maxlength="28" value="SCAN ME">
+        <div class="tools-row" style="justify-content:flex-start;margin-top:10px" id="fchips"></div>
+      </details>
+
+      <details>
+        <summary data-i18n="kit.title">Brand kit</summary>
+        <div class="hint" data-i18n="kit.hint">Save your logo, colors and style once, then reuse them for every code.</div>
+        <div class="row" style="grid-template-columns:1fr auto;align-items:end">
+          <div><label for="kitName" data-i18n="kit.name">Kit name</label><input type="text" id="kitName" maxlength="40" placeholder="My brand"></div>
+          <button type="button" class="btn small" id="kitSave" data-i18n="kit.save">Save kit</button>
+        </div>
+        <div class="kits" id="kits"></div>
+        <div class="hint" id="kitSync"></div>
+      </details>
+
+      <details>
+        <summary data-i18n="print.title">Print size check</summary>
+        <div class="row">
+          <div><label for="pw" data-i18n="print.width">Printed width (cm)</label><input type="number" id="pw" min="1" max="500" step="0.5" value="5"></div>
+          <div><label for="pd" data-i18n="print.dist">Scanning distance (m)</label><input type="number" id="pd" min="0.1" max="20" step="0.1" value="0.5"></div>
+        </div>
+        <div class="hint" data-i18n="print.hint">We estimate the smallest dot size and the distance your code can be scanned from. PDF downloads use this printed width.</div>
+      </details>
+    </div>
+
+    <div class="card preview" id="previewCard">
+      <div class="ptabs" id="ptabs" role="tablist" aria-label="Preview"></div>
+      <div class="stage">
+        <canvas id="preview" width="300" height="300" role="img" aria-label="QR code preview"></canvas>
+        <div class="mock" id="mock" hidden></div>
+      </div>
+      <div id="qrHost" aria-hidden="true"></div>
+      <div class="tools-row">
+        <button type="button" class="btn alt small" id="undo" disabled data-i18n="act.undo">Undo</button>
+        <button type="button" class="btn alt small" id="redo" disabled data-i18n="act.redo">Redo</button>
+        <button type="button" class="btn alt small" id="share" data-i18n="act.share">Copy share link</button>
+      </div>
+      <div class="dl">
+        <select id="fmt" aria-label="Download format"><option value="png">PNG</option><option value="jpeg">JPG</option><option value="webp">WebP</option><option value="svg">SVG</option><option value="pdf">PDF</option></select>
+        <button type="button" class="btn" id="download" data-i18n="act.download">Download</button>
+        <button type="button" class="btn alt span" id="copy" data-i18n="act.copy">Copy image</button>
+      </div>
+      <div class="scan" id="scan" aria-live="polite"></div>
+      <div class="print-chip" id="printChip" hidden></div>
+      <div class="hint" id="status" style="text-align:center" data-i18n="act.testscan">Always test-scan your code before printing.</div>
+      <div class="recent" id="recent" hidden><h4><span data-i18n="recent.title">Recent codes</span> <button type="button" class="link-btn" id="clearHistory" style="text-transform:none;letter-spacing:0;margin-left:6px">Clear</button></h4><div class="strip" id="strip"></div><div class="hint">Stored only on this device.</div></div>
+    </div>
+  </section>
+
+  {{EXTRA}}
+
+  <section class="band" id="how">
+    <h2 data-i18n="how.title">How to create a QR code.</h2>
+    <div class="grid3">
+      <div class="step-card"><img src="/images/step-generate.svg" alt="" width="44" height="44"><div><h3 data-i18n="how.1t">1. Generate.</h3><p data-i18n="how.1d">Pick a type, enter your details, and your QR code appears instantly.</p></div></div>
+      <div class="step-card"><img src="/images/step-personalize.svg" alt="" width="44" height="44"><div><h3 data-i18n="how.2t">2. Personalize.</h3><p data-i18n="how.2d">Add your brand logo and let colors and shapes match it automatically.</p></div></div>
+      <div class="step-card"><img src="/images/step-edit.svg" alt="" width="44" height="44"><div><h3 data-i18n="how.3t">3. Download.</h3><p data-i18n="how.3d">Save as PNG, JPG, WebP, SVG or print-ready PDF, or copy it straight into your design.</p></div></div>
+    </div>
+  </section>
+
+  <section class="feature-row">
+    <div class="ftext"><h2 data-i18n="f1.title">Customize your QR code to match your brand.</h2>
+      <p data-i18n="f1.text">Choose colors, switch dot and corner styles, add a frame and your logo. Every code is scan-tested in your browser before you download it.</p>
+      <a class="btn" href="#tool" data-i18n="f1.cta">Create QR code</a></div>
+    <img src="/images/customize.svg" alt="QR code with color swatches and style options" width="640" height="420" loading="lazy">
+  </section>
+
+  <section class="feature-row flip">
+    <div class="ftext"><h2 data-i18n="f2.title">Make a QR code that stands out.</h2>
+      <p data-i18n="f2.text">Use it on flyers, menus, business cards and posters. Preview your code on real-world mockups before you print.</p>
+      <a class="btn alt" href="#tool" data-i18n="f2.cta">Generate QR code</a></div>
+    <img src="/images/poster.svg" alt="Event flyer with a branded QR code" width="640" height="420" loading="lazy">
+  </section>
+
+  <section class="block" id="features">
+    <h2 data-i18n="why.title">Why QRForge</h2>
+    <div class="grid3">
+      <div class="card fcard"><h3 data-i18n="why.1t">Private by design</h3><p data-i18n="why.1d">Static codes are generated in your browser. What you type is never sent to our servers.</p></div>
+      <div class="card fcard"><h3 data-i18n="why.2t">Static codes never expire</h3><p data-i18n="why.2d">A static code stores your data directly, so it keeps working as long as the content does.</p></div>
+      <div class="card fcard"><h3 data-i18n="why.3t">Scan-tested every time</h3><p data-i18n="why.3d">We decode your finished code and automatically simplify the design if it would not scan.</p></div>
+      <div class="card fcard"><h3 data-i18n="why.4t">Dynamic codes &amp; analytics</h3><p data-i18n="why.4d">Edit where a printed code points, set expiry or a password, and see scans by day, device and country.</p></div>
+      <div class="card fcard"><h3 data-i18n="why.5t">Bulk generation</h3><p data-i18n="why.5d">Generate hundreds of codes at once from a list or CSV file and download them as a ZIP.</p></div>
+      <div class="card fcard"><h3 data-i18n="why.6t">Print-ready</h3><p data-i18n="why.6d">Vector SVG and sized PDF exports, plus a print check for dot size and scanning distance.</p></div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h2 data-i18n="use.title">QR codes for every need</h2>
+    <div class="usecases">{{USECASES}}</div>
+  </section>
+
+  <section class="block" id="faq">
+    <h2 data-i18n="faq.title">Frequently asked questions</h2>
+    <div class="faq">{{FAQ}}</div>
+  </section>
+
+  <section class="cta">
+    <h2 data-i18n="cta.title">Ready to create your QR code?</h2>
+    <p data-i18n="cta.text">It takes less than a minute.</p>
+    <a class="btn" href="#tool" data-i18n="cta.btn">Start now</a>
+  </section>
+</main>
+
+<footer class="site"><div class="wrap">
+  <div class="fcols">
+    <div><a class="logo" href="/"><i></i>QRForge</a><p class="hint" style="margin-top:10px" data-i18n="foot.tag">Free QR codes that match your brand.</p></div>
+    <div><h4 data-i18n="foot.create">Create</h4>{{FOOTLINKS}}</div>
+    <div><h4 data-i18n="foot.learn">Learn</h4><a href="/#how" data-i18n="nav.how">How it works</a><a href="/#features" data-i18n="nav.features">Features</a><a href="/#faq">FAQ</a></div>
+    <div><h4 data-i18n="foot.company">Company</h4><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div>
+  </div>
+  <div class="fine">© <span id="yr"></span> QRForge</div>
+</div></footer>
+
+<dialog id="authDlg" aria-label="Log in or create an account">
+  <div id="authMount"></div>
+  <div class="tools-row" style="justify-content:center;margin-top:8px"><button type="button" class="btn small alt" id="authCancel">Cancel</button></div>
+</dialog>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/qr-code-styling@1.6.0-rc.1/lib/qr-code-styling.js" defer {{SRI_QRS}}></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" defer {{SRI_JSQR}}></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" defer {{SRI_JSZIP}}></script>
+<script type="module" src="/js/app.js"></script>
+</body>
+</html>

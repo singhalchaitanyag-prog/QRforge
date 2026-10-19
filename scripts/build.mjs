@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HOME, PAGES, FOOT_LINKS } from './pages.mjs';
+import { GUIDES } from './guides.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pub = join(root, 'public');
@@ -53,6 +54,17 @@ function stripAbsoluteOnly(html) {
   return base ? html : html.split('\n').filter((l) => !/rel="canonical"|property="og:url"/.test(l)).join('\n');
 }
 
+function guideHtml(slug) {
+  const g = GUIDES[slug];
+  if (!g) return '';
+  return `<section class="block guide"><div class="prose">
+    <p>${esc(g.intro)}</p>
+    <h2>How to create it</h2>
+    <ol>${g.steps.map((x) => `<li>${esc(x)}</li>`).join('')}</ol>
+    ${g.sections.map(([h, p]) => `<h2>${esc(h)}</h2><p>${esc(p)}</p>`).join('')}
+  </div></section>`;
+}
+
 function landing(page, { path, home }) {
   const html = fill(tpl, {
     TITLE: esc(page.title), DESCRIPTION: esc(page.description), CANONICAL: abs(path || '/'),
@@ -62,7 +74,7 @@ function landing(page, { path, home }) {
     CRUMBS: home ? '' : `<nav class="crumbs" aria-label="Breadcrumb"><a href="/">QRForge</a> / ${esc(page.short)}</nav>`,
     H1: esc(page.h1), SUB: esc(page.sub),
     H1_I18N: home ? 'data-i18n="hero.h1"' : '', SUB_I18N: home ? 'data-i18n="hero.sub"' : '',
-    EXTRA: '', USECASES: useCases, FAQ: faqHtml(page.faq), FOOTLINKS: footLinks,
+    EXTRA: home ? '' : guideHtml(page.slug), USECASES: useCases, FAQ: faqHtml(page.faq), FOOTLINKS: footLinks,
     SRI_QRS: sriAttr('qrs'), SRI_JSQR: sriAttr('jsqr'), SRI_JSZIP: sriAttr('jszip'),
   });
   return stripAbsoluteOnly(html);
@@ -110,7 +122,7 @@ write('dashboard.html', shell({
 write('robots.txt', `User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /r/\nDisallow: /p/\nDisallow: /dashboard\n${base ? `Sitemap: ${base}/sitemap.xml\n` : ''}`);
 if (base) {
   const urls = ['/', ...PAGES.map((p) => `/${p.slug}`), '/privacy', '/terms'];
-  write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${base}${u === '/' ? '/' : u}</loc></url>`).join('\n')}\n</urlset>\n`);
+  write('sitemap.xml', `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.map((u) => `  <url><loc>${base}${u}</loc><lastmod>${new Date().toISOString().slice(0, 10)}</lastmod></url>`).join('\n')}\n</urlset>\n`);
 } else {
   console.warn('BASE_URL is not set: skipping sitemap.xml and canonical URLs. Set it for production builds.');
 }

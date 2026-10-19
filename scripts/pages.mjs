@@ -202,6 +202,28 @@ export const PAGES = [
       ['Do bulk codes use my styling?', 'Yes. Colors, dot style, logo and frame from the settings below are applied to every code.'],
     ],
   },
+  {
+    slug: 'google-review-qr-code-generator', type: 'url', short: 'Google review', blurb: 'Collect more reviews',
+    title: 'Google Review QR Code Generator: Get More Reviews Free | QRForge',
+    description: 'Create a QR code that opens your Google review form. Put it on bills, tables and counters so happy customers can leave a review in seconds. Free.',
+    h1: 'Free Google review QR code generator', sub: 'Paste your Google review link, add your logo, and print a code for your counter, bills and packaging.',
+    faq: [
+      ['Where do I find my Google review link?', 'Open your Business Profile on Google, choose "Ask for reviews" and copy the link. Paste it into the URL field above.'],
+      ['Can I track how many people scan it?', 'Yes. Turn on dynamic, and the dashboard shows scans by day, device and country, so you can see which counter or table brings the most reviews.'],
+      ['Will the code stop working if I change my business name?', 'A static code keeps pointing at the old link. A dynamic code lets you repoint it later without reprinting.'],
+    ],
+  },
+  {
+    slug: 'pdf-qr-code-generator', type: 'url', short: 'PDF', blurb: 'Link to a PDF file',
+    title: 'PDF QR Code Generator: Share a Brochure or Menu | QRForge',
+    description: 'Turn a PDF into a QR code. Upload the file anywhere online, paste its link, and print a code that opens it. Make it dynamic to swap the file later.',
+    h1: 'Free PDF QR code generator', sub: 'Share a brochure, catalogue, menu or manual. Host the PDF online, paste its link, and download your code.',
+    faq: [
+      ['Does QRForge host my PDF?', 'No. Upload the PDF to Google Drive, Dropbox or your own website, set it to "anyone with the link can view", and paste that link above.'],
+      ['How do I replace the PDF later without reprinting?', 'Make the code dynamic, then change its destination in the dashboard whenever you have a new file.'],
+      ['Will it open on every phone?', 'Yes. The code opens a web link and the phone shows the PDF in its browser or viewer.'],
+    ],
+  },
 ];
 
-export const FOOT_LINKS = ['url-qr-code-generator', 'wifi-qr-code-generator', 'vcard-qr-code-generator', 'bulk-qr-code-generator'];
+export const FOOT_LINKS = ['upi-qr-code-generator', 'whatsapp-qr-code-generator', 'url-qr-code-generator', 'wifi-qr-code-generator', 'vcard-qr-code-generator', 'bulk-qr-code-generator'];

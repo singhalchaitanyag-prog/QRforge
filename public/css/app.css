@@ -341,3 +341,6 @@ table.links tr.row-link:hover td { background: var(--soft-2); }
 .events .when { color: var(--muted); white-space: nowrap; font-size: .8rem; }
 .events .bad { color: var(--bad); }
 .nudge { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; margin-bottom: 18px; border-radius: 14px; background: var(--brand-soft); border: 1px solid var(--line); }
+
+.guide .prose { padding: 8px 0 24px; }
+.guide .prose ol { padding-left: 1.2em; }

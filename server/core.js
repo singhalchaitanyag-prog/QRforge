@@ -389,7 +389,9 @@ export function createCore({ db, config }) {
       ${error ? `<p class="err">${escapeHtml(error)}</p>` : ''}
       <form method="post" action="/r/${escapeHtml(code)}">
         <label for="pw">Password</label><input id="pw" name="password" type="password" autocomplete="off" required autofocus>
-        <button class="btn" type="submit" style="margin-top:12px">Continue</button></form>`));
+        <button class="btn" type="submit" style="margin-top:12px">Continue</button></form>`),
+      // The unlock POST answers with a redirect to the destination site; browsers enforce form-action on that redirect too.
+      { 'Content-Security-Policy': PAGE_CSP.replace("form-action 'self'", "form-action 'self' https: http:") });
 
   function renderLanding(l) {
     const p = JSON.parse(l.page_json);

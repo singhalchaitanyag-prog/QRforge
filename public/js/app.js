@@ -407,17 +407,79 @@ function buildTemplates() {
 }
 
 /* ------------------------------ export ------------------------------ */
-async function composed(fmt) {
+function rr(c, x, y, w, h, r) { c.beginPath(); c.roundRect(x, y, w, h, r); }
+// Paints the selected mockup (card, flyer, ...) onto a canvas so downloads match the preview.
+function drawMockup(qrCv, fmt) {
+  const K = 3, M = 36;                                    // output scale and margin for the shadow
+  const mc = $('fg').value;
+  const v = values.vcard || {};
+  const label = ($('ftext').value || 'Scan me').trim();
+  const dims = { card: [340, 194], flyer: [250, 347], tent: [230, 295], sticker: [240, 240], phone: [190, 380] }[ptab];
+  const [w, h] = dims;
+  const cv = document.createElement('canvas');
+  cv.width = (w + M * 2) * K; cv.height = (h + M * 2) * K;
+  const c = cv.getContext('2d');
+  if (fmt !== 'png') { c.fillStyle = '#ffffff'; c.fillRect(0, 0, cv.width, cv.height); }
+  c.scale(K, K); c.translate(M, M);
+  const shadow = (blur, dy, a) => { c.shadowColor = `rgba(0,0,0,${a})`; c.shadowBlur = blur; c.shadowOffsetY = dy; };
+  const noShadow = () => { c.shadowColor = 'transparent'; c.shadowBlur = 0; c.shadowOffsetY = 0; };
+  const text = (s, x, y, font, color, align = 'left', max) => {
+    c.font = font; c.fillStyle = color; c.textAlign = align; c.textBaseline = 'alphabetic';
+    c.fillText(s, x, y, max);
+  };
+  const FONT = 'system-ui, -apple-system, "Segoe UI", sans-serif';
+  const qrAt = (x, y, size) => c.drawImage(qrCv, x, y, size, size * qrCv.height / qrCv.width);
+  if (ptab === 'card') {
+    shadow(30, 14, .18); c.fillStyle = '#fff'; rr(c, 0, 0, w, h, 12); c.fill(); noShadow();
+    c.strokeStyle = '#ddd'; c.lineWidth = 1; rr(c, .5, .5, w - 1, h - 1, 12); c.stroke();
+    const q = w * .38;
+    text(`${v.first || ''} ${v.last || ''}`.trim() || 'Your Name', w * .07, h / 2 - 2, `700 17.6px ${FONT}`, mc, 'left', w * .5);
+    text(v.title || v.org || 'Scan to connect', w * .07, h / 2 + 18, `400 11.5px ${FONT}`, '#666', 'left', w * .5);
+    qrAt(w - w * .07 - q, (h - q) / 2, q);
+  } else if (ptab === 'flyer') {
+    shadow(30, 14, .2); c.fillStyle = '#fff'; rr(c, 0, 0, w, h, 10); c.fill(); noShadow();
+    c.save(); rr(c, 0, 0, w, h, 10); c.clip();
+    c.fillStyle = mc; c.fillRect(0, 0, w, 62);
+    text(label, w / 2, 40, `800 20px ${FONT}`, '#fff', 'center', w - 24);
+    c.restore();
+    text('Scan the code for details', w / 2, 90, `400 12px ${FONT}`, '#555', 'center');
+    const q = w * .62; qrAt((w - q) / 2, h - q - 16, q);
+  } else if (ptab === 'tent') {
+    shadow(28, 18, .22); c.fillStyle = '#fff'; c.beginPath(); c.roundRect(0, 0, w, h, [6, 6, 14, 14]); c.fill(); noShadow();
+    c.save(); c.beginPath(); c.roundRect(0, 0, w, h, [6, 6, 14, 14]); c.clip(); c.fillStyle = mc; c.fillRect(0, h - 10, w, 10); c.restore();
+    text(label.toUpperCase(), w / 2, 36, `700 17.6px ${FONT}`, mc, 'center', w - 24);
+    text('Point your camera here', w / 2, 54, `400 11px ${FONT}`, '#666', 'center');
+    const q = w * .78; qrAt((w - q) / 2, h - 22 - q, q);
+  } else if (ptab === 'sticker') {
+    shadow(26, 10, .22); c.fillStyle = mc; c.beginPath(); c.arc(w / 2, h / 2, w / 2 + 7, 0, 7); c.fill(); noShadow();
+    c.fillStyle = '#fff'; c.beginPath(); c.arc(w / 2, h / 2, w / 2, 0, 7); c.fill();
+    const q = w * .66; qrAt((w - q) / 2, (h - q) / 2, q);
+  } else if (ptab === 'phone') {
+    shadow(32, 16, .3); c.fillStyle = '#111'; rr(c, 0, 0, w, h, 28); c.fill(); noShadow();
+    const g = c.createLinearGradient(10, 10, w - 10, h - 10);
+    g.addColorStop(0, `color-mix(in srgb, ${mc} 20%, #fff)`); g.addColorStop(1, '#fff');
+    try { c.fillStyle = g; } catch { c.fillStyle = '#eef'; }
+    rr(c, 10, 10, w - 20, h - 20, 20); c.fill();
+    c.fillStyle = '#111'; rr(c, w * .3, 18, w * .4, 8, 6); c.fill();
+    const q = (w - 20) * .7; qrAt((w - q) / 2, h / 2 - q / 2 - 12, q);
+    text(label, w / 2, h / 2 + q / 2 + 12, `600 11px ${FONT}`, '#444', 'center', w - 40);
+  }
+  return cv;
+}
+
+async function composed(fmt, plain = false) {
   await flush();
   if (!lastBitmap) throw new Error('not ready');
-  return composeCanvas(lastBitmap, frameOpts(), { pageBg: fmt === 'png' ? null : '#ffffff' });
+  const cv = composeCanvas(lastBitmap, frameOpts(), { pageBg: fmt === 'png' ? null : '#ffffff' });
+  return plain || ptab === 'qr' ? cv : drawMockup(cv, fmt);
 }
 
 async function exportFile() {
   const data = currentData();
   if (!data) { setStatus(t('msg.add', 'Add some content first.')); return; }
   if (!qr) { setStatus('The QR library did not load. Check your connection and reload.'); return; }
-  const fmt = $('fmt').value;
+  let fmt = $('fmt').value;
+  if (fmt === 'svg' && ptab !== 'qr') { fmt = 'png'; setStatus('Mockups download as PNG. Pick the QR tab for SVG.'); }
   try {
     if (fmt === 'svg') {
       await flush();
@@ -468,7 +530,7 @@ async function shareLink() {
 
 /* ------------------------------ history ------------------------------ */
 async function addToHistory(data) {
-  const cv = await composed('png');
+  const cv = await composed('png', true);
   const t_ = document.createElement('canvas'); const k = 96 / Math.max(cv.width, cv.height);
   t_.width = Math.round(cv.width * k); t_.height = Math.round(cv.height * k);
   t_.getContext('2d').drawImage(cv, 0, 0, t_.width, t_.height);

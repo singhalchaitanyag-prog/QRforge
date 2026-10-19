@@ -194,6 +194,7 @@ function buildPageForm(box, link = null) {
 }
 
 /* ------------------------------ detail & analytics ------------------------------ */
+let pollTimer = null;
 async function openDetail(id) {
   const link = links.find((l) => l.id === id);
   if (!link) return;
@@ -225,17 +226,34 @@ async function openDetail(id) {
   head.append(left, actions);
   box.append(head);
 
-  const tiles = el('div', 'tiles');
-  for (const [v, l] of [[stats.total, 'Total scans'], [stats.inRange, 'Last 30 days'], [stats.uniqueVisitors, 'Unique visitors (30 days)']]) {
-    const t = el('div', 'tile'); t.append(el('b', '', String(v)), el('span', '', l)); tiles.append(t);
-  }
-  box.append(tiles, lineChart(stats.series));
-
-  const grid = el('div', 'cols2'); grid.style.marginTop = '20px';
-  for (const [t, data] of [['Devices', stats.devices], ['Browsers', stats.browsers], ['Operating systems', stats.os], ['Countries', stats.countries], ['Referrers', stats.referrers]]) {
-    grid.append(bars(t, data));
-  }
-  box.append(grid);
+  const live = el('div');
+  const liveTag = el('div', 'hint', 'Live: updates automatically'); liveTag.style.cssText = 'margin-bottom:8px';
+  box.append(liveTag, live);
+  const paint = (s) => {
+    live.textContent = '';
+    const tiles = el('div', 'tiles');
+    for (const [v, l] of [[s.total, 'Total scans'], [s.inRange, 'Last 30 days'], [s.uniqueVisitors, 'Unique visitors (30 days)']]) {
+      const t = el('div', 'tile'); t.append(el('b', '', String(v)), el('span', '', l)); tiles.append(t);
+    }
+    live.append(tiles, lineChart(s.series));
+    const grid = el('div', 'cols2'); grid.style.marginTop = '20px';
+    for (const [t, data] of [['Devices', s.devices], ['Browsers', s.browsers], ['Operating systems', s.os], ['Countries', s.countries], ['Referrers', s.referrers]]) {
+      grid.append(bars(t, data));
+    }
+    live.append(grid);
+  };
+  paint(stats);
+  // Poll for new scans while this link is open and the tab is visible; the edit form and QR below stay untouched.
+  clearInterval(pollTimer);
+  let last = JSON.stringify(stats);
+  pollTimer = setInterval(async () => {
+    if (selectedId !== id || document.hidden || !live.isConnected) { if (selectedId !== id || !live.isConnected) clearInterval(pollTimer); return; }
+    try {
+      const s = await api(`/api/links/${id}/stats?days=30`);
+      const j = JSON.stringify(s);
+      if (j !== last && selectedId === id) { last = j; paint(s); }
+    } catch { /* transient network error: try again next tick */ }
+  }, 5000);
 
   const split = el('div', 'detail-grid'); split.style.marginTop = '28px';
   const form = el('div');

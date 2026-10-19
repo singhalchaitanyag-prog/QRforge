@@ -23,12 +23,12 @@
     "TURSO_DATABASE_URL": "libsql://qrforge-chaitanyagsinghal.aws-ap-south-1.turso.io",
     "COOKIE_SECURE": "1",
     "PBKDF2_ITERATIONS": "100000"
-  }
+  },
 
-  // Turn this on once qrforge.co.in has been added to Cloudflare (see README). Until then the site is reachable on
-  // the free *.workers.dev address. Custom domains cannot be created for a domain that is not in your Cloudflare account.
-  // "routes": [
-  //   { "pattern": "qrforge.co.in", "custom_domain": true },
-  //   { "pattern": "www.qrforge.co.in", "custom_domain": true }
-  // ]
+  // The domain must be an active zone in this Cloudflare account. The site also stays reachable on the free
+  // *.workers.dev address. www is served by the same Worker, which redirects it to the bare domain.
+  "routes": [
+    { "pattern": "qrforge.co.in", "custom_domain": true },
+    { "pattern": "www.qrforge.co.in", "custom_domain": true }
+  ]
 }

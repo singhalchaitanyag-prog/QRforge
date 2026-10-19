@@ -20,8 +20,26 @@ const emails = [];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const nextIp = () => `10.77.${(stamp % 200) + 1}.${(ipCounter++ % 250) + 1}`;   // a fresh "visitor" per section, so shared limits never interfere
 
+// On a deployed site Cloudflare replaces the visitor address with the real one, so every request shares one
+// per-address sign-in budget (15 a minute). Pace those calls so the run never trips the limit it is not testing.
+const paced = /^https:/.test(base);
+const authCalls = [];
+async function pace(path) {
+  if (!paced || !/^\/api\/(auth\/|me\/(password|2fa))/.test(path)) return;
+  for (;;) {
+    const now = Date.now();
+    while (authCalls.length && now - authCalls[0] > 61_000) authCalls.shift();
+    if (authCalls.length < 12) break;
+    await sleep(authCalls[0] + 61_000 - now + 250);
+  }
+  authCalls.push(Date.now());
+}
+
 async function call(path, { method = 'GET', body, cookie, ip, headers = {}, raw } = {}) {
-  const h = { 'cf-connecting-ip': ip || nextIp(), ...headers };
+  await pace(path);
+  // Locally we pose as a different visitor per section. On a real Cloudflare site that header is set by Cloudflare itself
+  // and a forged one is rejected, so the test sends none there.
+  const h = { ...(paced ? {} : { 'cf-connecting-ip': ip || nextIp() }), ...headers };
   if (body !== undefined && !raw) h['Content-Type'] = 'application/json';
   if (cookie) h.Cookie = cookie;
   const res = await fetch(base + path, { method, headers: h, body: raw ?? (body !== undefined ? JSON.stringify(body) : undefined), redirect: 'manual' });
@@ -131,11 +149,11 @@ async function main() {
 
   const key = (await call('/api/me/apikey', { method: 'POST', cookie: step2.cookie })).data.apiKey;
   check('API key issued', /^qrf_live_/.test(key || ''));
-  const viaKey = await fetch(`${base}/api/v1/links`, { headers: { Authorization: `Bearer ${key}`, 'cf-connecting-ip': nextIp() } });
+  const viaKey = await fetch(`${base}/api/v1/links`, { headers: { Authorization: `Bearer ${key}`, ...(paced ? {} : { 'cf-connecting-ip': nextIp() }) } });
   eq('API key can list links', viaKey.status, 200);
-  const keyChange = await fetch(`${base}/api/me/password`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', 'cf-connecting-ip': nextIp() }, body: JSON.stringify({ current: 'x', next: 'y' }) });
+  const keyChange = await fetch(`${base}/api/me/password`, { method: 'POST', headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json', ...(paced ? {} : { 'cf-connecting-ip': nextIp() }) }, body: JSON.stringify({ current: 'x', next: 'y' }) });
   eq('API key cannot change the password', keyChange.status, 403);
-  const svg = await fetch(`${base}/api/v1/qr?data=https://example.com&format=svg`, { headers: { Authorization: `Bearer ${key}`, 'cf-connecting-ip': nextIp() } });
+  const svg = await fetch(`${base}/api/v1/qr?data=https://example.com&format=svg`, { headers: { Authorization: `Bearer ${key}`, ...(paced ? {} : { 'cf-connecting-ip': nextIp() }) } });
   check('QR image endpoint returns SVG', svg.status === 200 && /svg/.test(svg.headers.get('content-type')) && (await svg.text()).includes('<svg'));
 
   /* ---- abuse protection ---- */

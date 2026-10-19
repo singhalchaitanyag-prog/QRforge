@@ -1,0 +1,34 @@
+{
+  // Cloudflare Worker configuration for QRForge. Secrets (TURSO_AUTH_TOKEN, APP_SECRET) are NOT stored here:
+  // add them in the Cloudflare dashboard (Worker > Settings > Variables and Secrets) as "Secret" type.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "qrforge",
+  "main": "worker/index.js",
+  "compatibility_date": "2025-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Builds the static pages (home, use-case pages, docs, legal) before every deploy.
+  "build": { "command": "node scripts/build.mjs" },
+
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    // Only these paths run the Worker; everything else is served directly from the assets, which is faster.
+    "run_worker_first": ["/api/*", "/r/*", "/p/*", "/healthz"]
+  },
+
+  "vars": {
+    "BASE_URL": "https://qrforge.co.in",
+    "TURSO_DATABASE_URL": "libsql://qrforge-chaitanyagsinghal.aws-ap-south-1.turso.io",
+    "COOKIE_SECURE": "1",
+    "PBKDF2_ITERATIONS": "100000"
+  }
+
+  // Turn this on once qrforge.co.in has been added to Cloudflare (see README). Until then the site is reachable on
+  // the free *.workers.dev address. Custom domains cannot be created for a domain that is not in your Cloudflare account.
+  // "routes": [
+  //   { "pattern": "qrforge.co.in", "custom_domain": true },
+  //   { "pattern": "www.qrforge.co.in", "custom_domain": true }
+  // ]
+}

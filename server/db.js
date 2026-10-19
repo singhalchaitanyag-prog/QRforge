@@ -2,36 +2,8 @@ import Database from 'libsql';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 
-/**
- * Opens the database.
- *  - Local only (default): a plain SQLite file, or ':memory:' for tests.
- *  - With `remote: { url, authToken }`: the file at `path` becomes an embedded replica of a Turso database.
- *    Reads are served locally; writes are sent to Turso and then appear in the local copy, so the data
- *    survives hosts that wipe their disk on every deploy. Turso stays the source of truth.
- */
-export function openDb(path, remote = null) {
-  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
-  const db = remote?.url
-    ? new Database(path, { syncUrl: remote.url, authToken: remote.authToken })
-    : new Database(path);
-  if (remote?.url) db.sync();                      // pull the latest data before serving anything
-
-  // libSQL adds a `_metadata` timing field to rows from .get(); drop it so rows look the same as before
-  // and can never leak into an API response by accident.
-  const prepare = db.prepare.bind(db);
-  db.prepare = (sql) => {
-    const stmt = prepare(sql);
-    const get = stmt.get.bind(stmt);
-    stmt.get = (...args) => { const row = get(...args); if (row && typeof row === 'object') delete row._metadata; return row; };
-    return stmt;
-  };
-
-  // Not every libSQL mode supports every pragma, and none of them are required for correctness.
-  for (const pragma of ['PRAGMA journal_mode = WAL', 'PRAGMA foreign_keys = ON']) {
-    try { db.exec(pragma); } catch { /* unsupported in this mode */ }
-  }
-
-  db.exec(`
+/** Every table QRForge needs. Statements are idempotent, so this can be run against any existing database. */
+export const SCHEMA = `
     CREATE TABLE IF NOT EXISTS users (
       id            INTEGER PRIMARY KEY,
       email         TEXT NOT NULL UNIQUE,
@@ -87,6 +59,15 @@ export function openDb(path, remote = null) {
       attempts   INTEGER NOT NULL DEFAULT 0
     );
 
+    -- Attempt counters kept in the database (not in memory) so limits hold across server restarts and across
+    -- Cloudflare Worker isolates, which each have their own memory.
+    CREATE TABLE IF NOT EXISTS throttle (
+      key          TEXT PRIMARY KEY,
+      n            INTEGER NOT NULL DEFAULT 0,
+      window_start INTEGER NOT NULL,
+      locked_until INTEGER NOT NULL DEFAULT 0
+    );
+
     -- Account security activity shown to the owner.
     CREATE TABLE IF NOT EXISTS events (
       id      INTEGER PRIMARY KEY,
@@ -96,20 +77,50 @@ export function openDb(path, remote = null) {
       detail  TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_events_user_ts ON events(user_id, ts);
-  `);
+`;
 
-  // In-place upgrades for databases created by earlier versions.
-  const addColumn = (table, column, ddl) => {
-    const has = db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
-    if (!has) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+/** Columns added after the first release. Applied to databases created by earlier versions. */
+export const COLUMN_UPGRADES = [
+  ['users', 'name', 'TEXT'],
+  ['users', 'totp_secret_enc', 'TEXT'],
+  ['users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0'],
+  ['users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0'],
+  ['users', 'recovery_hashes', 'TEXT'],
+  ['users', 'password_changed_at', 'INTEGER'],
+  ['sessions', 'created_at', 'INTEGER'],
+  ['sessions', 'user_agent', 'TEXT'],
+];
+
+/** Opens a local SQLite file (or ':memory:' for tests) and brings its schema up to date. */
+export function openDb(path) {
+  if (path !== ':memory:') mkdirSync(dirname(path), { recursive: true });
+  const db = new Database(path);
+
+  // libSQL adds a `_metadata` timing field to rows from .get(); drop it so rows look the same as before
+  // and can never leak into an API response by accident.
+  const prepare = db.prepare.bind(db);
+  db.prepare = (sql) => {
+    const stmt = prepare(sql);
+    const get = stmt.get.bind(stmt);
+    stmt.get = (...args) => { const row = get(...args); if (row && typeof row === 'object') delete row._metadata; return row; };
+    return stmt;
   };
-  addColumn('users', 'name', 'TEXT');
-  addColumn('users', 'totp_secret_enc', 'TEXT');
-  addColumn('users', 'totp_enabled', 'INTEGER NOT NULL DEFAULT 0');
-  addColumn('users', 'totp_last_step', 'INTEGER NOT NULL DEFAULT 0');
-  addColumn('users', 'recovery_hashes', 'TEXT');
-  addColumn('users', 'password_changed_at', 'INTEGER');
-  addColumn('sessions', 'created_at', 'INTEGER');
-  addColumn('sessions', 'user_agent', 'TEXT');
+
+  for (const pragma of ['PRAGMA journal_mode = WAL', 'PRAGMA foreign_keys = ON']) {
+    try { db.exec(pragma); } catch { /* not required for correctness */ }
+  }
+  db.exec(SCHEMA);
+  for (const [table, column, ddl] of COLUMN_UPGRADES) {
+    if (!db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column)) db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
   return db;
+}
+
+/** Same as openDb, for a Turso database reached through @libsql/client. Safe to run repeatedly. */
+export async function initRemote(client) {
+  await client.executeMultiple(SCHEMA);
+  for (const [table, column, ddl] of COLUMN_UPGRADES) {
+    const info = await client.execute(`PRAGMA table_info(${table})`);
+    if (!info.rows.some((r) => r.name === column)) await client.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddl}`);
+  }
 }

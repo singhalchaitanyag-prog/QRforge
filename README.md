@@ -34,51 +34,67 @@ Other scripts: `npm run build` (regenerate pages), `npm start` (server only), `n
 | Variable | Purpose |
 |---|---|
 | `PORT` | Port to listen on (default 3000). |
-| `BASE_URL` | Public origin, e.g. `https://qr.example.com`. Used for canonical URLs, the sitemap and short links. Set it for production builds: `BASE_URL=https://qr.example.com npm run build`. |
+| `BASE_URL` | Public origin, e.g. `https://qr.example.com`. Used for canonical URLs, the sitemap and short links. If unset, the build uses the value in `wrangler.jsonc`. |
 | `APP_SECRET` | Secret that encrypts two-step secrets and salts visitor hashes. Without Turso, one is generated and kept in `data/app.secret` if unset. **Required with Turso**, and it must never change. |
 | `COOKIE_SECURE` | Set to `1` when serving over HTTPS (also implied by an `https://` BASE_URL). |
 | `TRUST_PROXY` | Set to `1` only when behind a reverse proxy or CDN that sets `X-Forwarded-For`. |
 | `TURSO_DATABASE_URL` | Your Turso database, e.g. `libsql://your-db.turso.io`. When set, Turso becomes the permanent database (see below). |
 | `TURSO_AUTH_TOKEN` | Access token for that database. Required with `TURSO_DATABASE_URL`. Treat it like a password. |
-| `DB_PATH` | Local database file. Default `data/qrforge.db`; with Turso it defaults to a cache file in the system temp folder. |
+| `AUTH_LIMIT_PER_MINUTE` | Sign-in attempts allowed per visitor address per minute (default 15). |
+| `PBKDF2_ITERATIONS` | Password hashing cost (default 100000). Existing hashes keep working and are upgraded when changed. |
+| `DB_PATH` | Local database file (used only when Turso is not configured). Default `data/qrforge.db`. |
 
 ## Using Turso (free hosted database)
 
-By default QRForge stores everything in a local SQLite file. Many free hosts erase the disk on every deploy or restart, which would delete accounts. Turso keeps the data in the cloud instead.
-
-How it works: the server keeps a local copy of your Turso database in your system's temp folder (not inside OneDrive or Dropbox, whose file locking breaks it). Reads come from the local copy and are fast. Every write is sent to Turso and then appears in the local copy. Turso is the source of truth, so the local file can be deleted at any time and is rebuilt on the next start.
+By default QRForge stores everything in a local SQLite file. Many hosts erase their disk on every deploy or restart, which would delete accounts. Turso keeps the data in the cloud instead, and both the Node server and the Cloudflare Worker talk to it directly over HTTPS.
 
 1. Create a database at turso.tech and copy its URL (it starts with `libsql://`).
 2. In the dashboard, create an access token for it.
 3. Put both in `.env` (see `.env.example`), along with a long random `APP_SECRET`.
-4. Optional, once: copy existing local accounts into Turso with `npm run migrate:turso`. It is safe to repeat, never overwrites rows, and refuses to run against a database that holds different accounts.
-5. `npm start`. The log shows `Database: Turso (...)`.
-
-On your host, set the same three variables in its environment settings instead of using a `.env` file.
+4. `npm run db:init` creates the tables. (`npm start` also does this on every start.)
+5. Optional, once: copy existing local accounts into Turso with `npm run migrate:turso`. It is safe to repeat, never overwrites rows, and refuses to run against a database that holds different accounts.
+6. `npm start`. The log shows `Database: Turso (...)`.
 
 Things to know:
-- Each write waits for a round trip to Turso (roughly 0.3 seconds from India in testing), so writes are slower than with a local file. Reads are not affected. QR scans redirect first and are counted afterwards, so visitors never wait for it. While a write is in flight the server does not answer other requests, so a very busy site would outgrow this setup.
-- Run **one** server instance. Several instances would each have their own local copy and would not see each other's writes immediately.
+- Every database call is a round trip to Turso, so expect roughly 50 to 500 ms for API calls. QR scans redirect immediately and are counted just afterwards.
 - Check Turso's current free-tier limits (storage and row reads/writes) before depending on it.
+- Turso's "embedded replica" mode (a local copy that syncs) is deliberately not used: it does not guarantee that a write is visible to the very next read, which would weaken replay protection for two-step codes.
 
-## Deploying to qrforge.co.in (Node host + custom domain)
+## Deploying to Cloudflare (qrforge.co.in)
 
-The server must run continuously, so use a host that runs Node (Render, Railway or Fly.io). Pick an always-on plan: free plans sleep when idle, and the first scan after a sleep can take a minute. The database lives in Turso, so the host's disk can be wiped freely.
+QRForge runs on Cloudflare Workers. The pages are served from Cloudflare's network, the dynamic routes (`/api`, `/r`, `/p`) run in a Worker, and the data lives in Turso. There is no server to keep running and nothing sleeps.
 
-1. Push this project to a GitHub repository (`.env`, `node_modules` and `data` are git-ignored).
-2. Create a new web service from the repository. The settings are in `render.yaml` (Render reads it as a Blueprint). On other hosts use build `npm ci && npm run build` and start `npm start`.
-3. Set these environment variables in the host's dashboard. Never commit them:
-   - `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` (use a token you created for production, not one you ever pasted into chat), `APP_SECRET` (the same value for as long as the database exists)
-   - `BASE_URL=https://qrforge.co.in`, `COOKIE_SECURE=1`, `TRUST_PROXY=1`
-4. Open `/healthz` on the host's temporary address to confirm it is running, and test a sign-up there.
-5. Add `qrforge.co.in` (and `www.qrforge.co.in`) as custom domains in the host. It will show the exact DNS records to create (usually an `A` record or `ALIAS` for the root, and a `CNAME` for `www`).
-6. Create those records where the domain's DNS is managed (Hostinger hPanel, Domains, DNS / Nameservers), remove any parking records for the same names, wait for DNS to update (minutes to a few hours), and the host issues the HTTPS certificate automatically.
-7. Check `https://qrforge.co.in/`, then submit `https://qrforge.co.in/sitemap.xml` in Google Search Console.
+How the code is organised:
+- `server/core.js` is the application. It speaks web `Request`/`Response` and an async database facade, so it runs anywhere.
+- `server/app.js` wraps it for Node (local development, the tests, any Node host). `worker/index.js` wraps it for Cloudflare.
+- `wrangler.jsonc` configures the Worker. The production domain is written once, in its `BASE_URL` variable, and the build reads it from there.
 
-Notes:
-- With the local-file database instead of Turso, back up `data/`; with Turso, back up `APP_SECRET`.
-- Run one instance. The in-memory rate limiter and the local database copy assume a single server process.
-- Without `TRUST_PROXY=1` every visitor appears to come from the host's proxy, which would make the sign-in rate limit apply to everyone at once.
+One-time setup:
+1. `npm install`, then put `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` and `APP_SECRET` in `.env`.
+2. `npm run db:init` creates the tables in Turso. The Worker never creates tables, so run this again after any update that changes the schema.
+3. `npx wrangler login` signs the command line in to your Cloudflare account.
+4. Add the two secrets to the Worker (they are stored encrypted and never appear in the repository):
+   `npx wrangler secret put TURSO_AUTH_TOKEN` and `npx wrangler secret put APP_SECRET`
+5. `npm run cf:deploy` builds the pages and deploys. The site is then live on a free `qrforge.<your-subdomain>.workers.dev` address.
+
+Test locally in Cloudflare's runtime with `npm run cf:dev` (it reads `.dev.vars`, a git-ignored copy of the secrets). `npm run e2e -- http://localhost:8787` runs about 50 end-to-end checks against any running copy, including the live site.
+
+Using your own domain:
+1. Add the domain to Cloudflare ("Add a site"). Cloudflare gives you two nameservers.
+2. At your registrar (Hostinger: Domains, DNS / Nameservers), replace the current nameservers with those two. Propagation takes minutes to hours.
+3. In `wrangler.jsonc`, uncomment the `routes` block (apex plus `www`), then `npm run cf:deploy`. HTTPS certificates are issued automatically, and `www` redirects to the bare domain.
+
+Automatic deploys: in the Cloudflare dashboard (Workers and Pages, your Worker, Settings, Builds) connect the GitHub repository, build command `npm run build`, deploy command `npx wrangler deploy`. Each push to `main` then deploys itself.
+
+Things to know:
+- **CPU limit on the free plan.** Workers Free allows about 10 ms of CPU per request. Hashing a password is deliberately expensive, so sign-up and login may exceed that on the free plan, while redirects and page views are cheap. If sign-up fails with a CPU-limit error, either use Workers Paid (about $5 a month) or lower `PBKDF2_ITERATIONS` in `wrangler.jsonc` (weaker password protection, so prefer upgrading). Two-step login is strongly recommended either way.
+- **Data and limits.** Every database call is a round trip to Turso, so API calls take roughly 50 to 500 ms. QR scans redirect immediately and are counted just afterwards. Check the current free limits of both Cloudflare and Turso.
+- **PNG images from the API.** The `/api/v1/qr` endpoint returns SVG on Cloudflare (PNG needs Node-only libraries). The generator itself is unaffected.
+- **Country analytics** work automatically, because Cloudflare supplies the visitor's country.
+- **Rate limits and lockouts** are stored in the database, so they hold across servers and restarts.
+- No proxy settings are needed on Cloudflare: the Worker reads Cloudflare's own `CF-Connecting-IP` header, which visitors cannot forge.
+
+Running on an ordinary Node host instead still works: set the variables listed under Configuration, build with `npm run build`, start with `npm start`, and run a single instance.
 
 ## Sign-in security
 

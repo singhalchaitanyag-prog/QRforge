@@ -12,10 +12,18 @@
     "start": "node --env-file-if-exists=.env server/index.js",
     "dev": "node scripts/build.mjs && node --env-file-if-exists=.env server/index.js",
     "test": "node --test \"test/*.test.js\"",
-    "migrate:turso": "node --env-file=.env scripts/migrate-to-turso.mjs"
+    "migrate:turso": "node --env-file=.env scripts/migrate-to-turso.mjs",
+    "db:init": "node --env-file=.env scripts/db-init.mjs",
+    "e2e": "node --env-file=.env scripts/e2e.mjs",
+    "cf:dev": "wrangler dev --port 8787",
+    "cf:deploy": "wrangler deploy"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "libsql": "^0.5.29",
     "qrcode": "^1.5.4"
+  },
+  "devDependencies": {
+    "wrangler": "^4.151.2"
   }
 }

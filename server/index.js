@@ -1,15 +1,16 @@
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { randomBytes, createHash } from 'node:crypto';
-import { tmpdir } from 'node:os';
-import { openDb } from './db.js';
+import { randomBytes } from 'node:crypto';
+import { openDb, initRemote } from './db.js';
+import { connectTurso } from './turso.js';
+import { wrapClient } from './dbadapter.js';
 import { createApp } from './app.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const env = process.env;
 
-/* ---- database: a local file by default, or a Turso database kept in sync with a local copy ---- */
+/* ---- database: a local SQLite file by default, or a Turso database reached over HTTPS ---- */
 const tursoUrl = (env.TURSO_DATABASE_URL || '').trim();
 const tursoToken = (env.TURSO_AUTH_TOKEN || '').trim();
 const useTurso = !!tursoUrl;
@@ -22,15 +23,12 @@ function fail(message) {
 if (useTurso && !/^(libsql|https?|wss?):\/\//.test(tursoUrl)) fail('TURSO_DATABASE_URL must look like libsql://your-database.turso.io');
 if (useTurso && !tursoToken) fail('TURSO_AUTH_TOKEN is empty. Create a token for your database in the Turso dashboard and put it in the .env file.');
 if (useTurso && !env.APP_SECRET) {
-  // The secret encrypts two-step verification seeds that live in the (persistent) cloud database. A secret kept
-  // on a disk that can be wiped on deploy would make those seeds unreadable, so it must be provided explicitly.
+  // The secret encrypts two-step verification seeds that live in the cloud database. A secret kept on a disk that
+  // can be wiped on deploy would make those seeds unreadable, so it must be provided explicitly.
   fail('APP_SECRET is required when using Turso. Set it to a long random string and never change it.');
 }
 
-// With Turso the local file is only a disposable cache of the cloud database. It lives in the system temp folder
-// (never inside a OneDrive/Dropbox folder, whose file locking breaks it) and is named after the database it caches.
-const cacheName = `turso-${createHash('sha1').update(tursoUrl).digest('hex').slice(0, 10)}.db`;
-const dbPath = env.DB_PATH || (useTurso ? join(tmpdir(), 'qrforge', cacheName) : join(root, 'data', 'qrforge.db'));
+const dbPath = env.DB_PATH || join(root, 'data', 'qrforge.db');          // local-file mode only
 
 /**
  * The app secret encrypts two-factor seeds and salts visitor hashes, so it must survive restarts.
@@ -50,28 +48,38 @@ function loadSecret() {
 const config = {
   port: Number(env.PORT || 3000),
   baseUrl: (env.BASE_URL || '').replace(/\/$/, ''),          // e.g. https://qrforge.example.com
-  dbPath,
   publicDir: join(root, 'public'),
   secureCookies: env.COOKIE_SECURE === '1' || (env.BASE_URL || '').startsWith('https://'),
   trustProxy: env.TRUST_PROXY === '1',                        // set when behind a reverse proxy / CDN
   secret: loadSecret(),
+  authLimitPerMinute: Number(env.AUTH_LIMIT_PER_MINUTE) || undefined,   // sign-in attempts per IP per minute (default 15)
+  pbkdf2Iterations: Number(env.PBKDF2_ITERATIONS) || undefined,
 };
 
-let db;
+let app;
+let closeDb = () => {};
 try {
-  db = openDb(config.dbPath, useTurso ? { url: tursoUrl, authToken: tursoToken } : null);
+  if (useTurso) {
+    const client = connectTurso({ url: tursoUrl, authToken: tursoToken });
+    await initRemote(client);                                  // creates or upgrades tables; also proves the connection works
+    app = createApp({ asyncDb: wrapClient(client), config });
+    closeDb = () => client.close();
+  } else {
+    const db = openDb(dbPath);
+    app = createApp({ db, config });
+    closeDb = () => db.close();
+  }
 } catch (err) {
   fail(useTurso
     ? `could not connect to Turso (${err.message}). Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.`
     : `could not open the database (${err.message}).`);
 }
 
-const server = createApp({ db, config });
-server.listen(config.port, () => {
+app.listen(config.port, () => {
   console.log(`QRForge running on ${config.baseUrl || `http://localhost:${config.port}`}`);
-  console.log(useTurso ? `Database: Turso (${new URL(tursoUrl.replace(/^libsql:/, 'https:')).host}), local cache at ${config.dbPath}` : `Database: local file ${config.dbPath}`);
+  console.log(useTurso ? `Database: Turso (${new URL(tursoUrl.replace(/^libsql:/, 'https:')).host})` : `Database: local file ${dbPath}`);
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
-  process.on(sig, () => server.close(() => { try { db.close(); } catch { /* already closed */ } process.exit(0); }));
+  process.on(sig, () => app.close(() => { try { closeDb(); } catch { /* already closed */ } process.exit(0); }));
 }

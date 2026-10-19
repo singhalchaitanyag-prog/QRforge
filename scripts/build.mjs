@@ -7,7 +7,15 @@ import { HOME, PAGES, FOOT_LINKS } from './pages.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pub = join(root, 'public');
-const base = (process.env.BASE_URL || '').replace(/\/$/, '');
+// BASE_URL comes from the environment, or else from wrangler.jsonc (the single place the production domain is written).
+function baseFromWrangler() {
+  try {
+    const text = readFileSync(join(root, 'wrangler.jsonc'), 'utf8')
+      .split('\n').filter((line) => !/^\s*\/\//.test(line)).join('\n');   // drop whole-line comments
+    return JSON.parse(text).vars?.BASE_URL || '';
+  } catch { return ''; }
+}
+const base = (process.env.BASE_URL || baseFromWrangler()).replace(/\/$/, '');
 const tpl = readFileSync(join(root, 'templates', 'page.html'), 'utf8');
 const sriPath = join(root, 'scripts', 'sri.json');
 const sri = existsSync(sriPath) ? JSON.parse(readFileSync(sriPath, 'utf8')) : {};

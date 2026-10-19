@@ -15,9 +15,12 @@
 
 <h2>Accounts and dynamic codes</h2>
 <p>If you create an account, we store your name and email address, a salted hash of your password (never the password itself), your links and landing pages, optional brand kits you choose to sync, and the hash of any API key. A session cookie keeps you logged in. It is HttpOnly and is used for nothing else. For each active session we keep the time it started and the browser's user-agent text.</p>
-<p>If you turn on two-step verification, we store your authenticator secret encrypted, and hashes of your recovery codes (the codes themselves are shown to you once). We also keep a short activity log for your account (sign-ins, failed attempts, password and security changes, with the browser and operating system used) so you can spot anything unfamiliar. We do not store IP addresses in that log. Failed sign-in attempts are counted in memory for rate limiting and are not written to the database.</p>
+<p>If you turn on two-step verification, we store your authenticator secret encrypted, and hashes of your recovery codes (the codes themselves are shown to you once). We also keep a short activity log for your account (sign-ins, failed attempts, password and security changes, with the browser and operating system used) so you can spot anything unfamiliar. We do not store IP addresses in that log. To limit guessing, we keep counters of recent sign-in attempts. Their keys are one-way hashes, so neither your email address nor an IP address is stored in readable form there.</p>
 <p>When someone scans a dynamic code, we record the time, device type, browser, operating system, the referring site's host name, a country code when the hosting provider supplies one, and a visitor hash. The hash is derived from the IP address, a secret and the date, so it rotates daily and the IP address itself is not stored. Crawlers and preview bots are not counted. You can delete a link at any time, which deletes its scan history.</p>
 <p>If you add a webhook, each scan's details (without any IP address) are sent to the URL you provide.</p>
+
+<h2>Where the data lives</h2>
+<p>The site is served through Cloudflare, which processes visitors' requests (including IP addresses) in order to deliver pages and protect the service. Account and link data is stored in a Turso database hosted on AWS in Mumbai, India (ap-south-1).</p>
 
 <h2>Third parties</h2>
 <p>The pages load fonts from Google Fonts and the QR, scan-check and ZIP libraries from public CDNs (jsDelivr and cdnjs). Those providers can see your IP address when your browser fetches those files. Dynamic redirects and landing pages send visitors to the destination you chose, which has its own privacy practices.</p>
